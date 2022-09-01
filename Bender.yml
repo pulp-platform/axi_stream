@@ -1,0 +1,33 @@
+# Copyright 2022 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+
+package:
+  name: axi_stream
+  authors:
+    # Alphabetically ordered by last name (maintainers first)
+    - "Thomas Benz <tbenz@iis.ee.ethz.ch>" # current maintainer
+    - "Tim Fischer <fischeti@iis.ee.ethz.ch>" # current maintainer
+    - "Noah Huetter <huettern@iis.ee.ethz.ch>"
+    - "Nils Wistoff <nwistoff@iis.ee.ethz.ch>"
+
+dependencies:
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.21.0 }
+
+export_include_dirs:
+  - include
+
+sources:
+  # Source files grouped in levels. Files in level 0 have no dependencies on files in this
+  # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
+  # levels 1 and 0, etc. Files within a level are ordered alphabetically.
+  # Level 0
+  - src/axi_stream_intf.sv
+  # levels 1
+  - src/axi_stream_cut.sv
+  # levels 2
+  - src/axi_stream_multicut.sv
+
+  - target: test
+    files:
+      - test/axi_stream_test.sv
