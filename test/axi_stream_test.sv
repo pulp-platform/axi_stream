@@ -60,7 +60,7 @@ package axi_stream_test;
     endtask
 
     /// Issue a beat
-    task send(input logic [DataWidth-1:0] data, input logic last);
+    task automatic send(input logic [DataWidth-1:0] data, input logic last);
       axi_stream.tdata <= #ApplTime data;
       axi_stream.tstrb <= '0;
       axi_stream.tkeep <= '0;
@@ -81,7 +81,7 @@ package axi_stream_test;
     endtask
 
     /// Wait for a beat
-    task recv(output [DataWidth-1:0] data, output logic [LW-1:0] last);
+    task automatic recv(output [DataWidth-1:0] data, output logic last);
       axi_stream.tready <= #ApplTime 1;
       cycle_start();
       while (axi_stream.tvalid != 1) begin
