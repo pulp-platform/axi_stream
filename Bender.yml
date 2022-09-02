@@ -12,7 +12,7 @@ package:
     - "Nils Wistoff <nwistoff@iis.ee.ethz.ch>"
 
 export_include_dirs:
-  - include/axi_stream
+  - include
 
 sources:
   # Source files grouped in levels. Files in level 0 have no dependencies on files in this
