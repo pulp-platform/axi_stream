@@ -18,7 +18,7 @@ package axi_stream_test;
     parameter time         TestTime  = 0ns  // stimuli test time
   );
 
-    virtual AXIS_BUS_DV #(
+    virtual AXI_STREAM_BUS_DV #(
       .DataWidth ( DataWidth ),
       .IdWidth   ( IdWidth   ),
       .DestWidth ( DestWidth ),
@@ -26,7 +26,7 @@ package axi_stream_test;
     ) axi_stream;
 
     function new(
-      virtual AXIS_BUS_DV #(
+      virtual AXI_STREAM_BUS_DV #(
         .DataWidth ( DataWidth ),
         .IdWidth   ( IdWidth   ),
         .DestWidth ( DestWidth ),
