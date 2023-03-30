@@ -25,6 +25,7 @@ sources:
   - src/axi_stream_intf.sv
   # levels 1
   - src/axi_stream_cut.sv
+  - src/axi_stream_dw_downsizer.sv
   # levels 2
   - src/axi_stream_multicut.sv
 
