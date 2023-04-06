@@ -84,7 +84,7 @@ module tb_axi_stream_dw_downsizer ();
   slave_drv_t slave_drv = new(slave_dv);
 
   // --------------------- DUT ------------------------
-  axi_stream_dw_downsizer #(
+  axi_stream_dw_downsizer_intf #(
     .DataWidthIn (DW_IN     ),
     .DataWidthOut(DW_OUT    ),
     .IdWidth     (ID_WIDTH  ),
