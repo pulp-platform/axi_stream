@@ -154,7 +154,7 @@ module tb_axi_stream_dw_downsizer ();
         repeat(4) slave_drv.recv(data_recv, last_recv);
       end
       begin
-        @(posedge clk_i);
+        repeat(2) @(posedge clk_i);
         assert(slave.tdata == 8'hef);
         assert(slave.tlast == 1'b0);
         @(posedge clk_i);
@@ -183,7 +183,7 @@ module tb_axi_stream_dw_downsizer ();
         repeat(4) slave_drv.recv(data_recv, last_recv);
       end
       begin
-        @(posedge clk_i);
+        repeat(2) @(posedge clk_i);
         assert(slave.tdata == 8'hef);
         assert(slave.tlast == 1'b0);
         @(posedge clk_i);
@@ -226,7 +226,7 @@ module tb_axi_stream_dw_downsizer ();
         slave_drv.recv(data_recv, last_recv);
       end
       begin
-        @(posedge clk_i);
+        repeat(2) @(posedge clk_i);
         assert(slave.tdata == 8'hef);
         assert(slave.tlast == 1'b0);
         repeat(2) @(posedge clk_i);

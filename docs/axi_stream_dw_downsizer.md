@@ -1,5 +1,5 @@
 # AXI Stream DataWidth Downsizer
-This module can downsize an arbitrarily big AXI-Stream to a smaller AXI-Stream. The data width of the bigger stream must be an integer multiple of the data width of the smaller stream. Also, the data width of the input stream must be strictly greater than that of the output stream.
+This module can downsize an arbitrarily big AXI-Stream to a smaller AXI-Stream. The data width of the bigger stream must be an integer multiple of the data width of the smaller stream. Also, the data width of the input stream must be strictly greater than that of the output stream. Data accepted at the input port will be one clock cycle later at the output port (no pass through).
 
 
 ## Signal Transmission Characteristic

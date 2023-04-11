@@ -58,35 +58,26 @@ module axi_stream_dw_downsizer #(
   logic [  UserWidth-1:0] tuser_received_d, tuser_received_q;
 
   logic [CounterWidth-1:0] counter_d, counter_q;
+  logic last_subtransfer;
 
-  typedef enum logic [2:0] {NoValidDataIn, ValidDataInNoReadyOut, AcceptDataIn,
-                            NoReadyInTransmission, DataOut} state_t;
+  typedef enum logic [1:0] {AcceptDataIn, DataOut, LastDataOut} state_t;
   state_t state_d, state_q;
 
-  always_comb begin // connect correct signals to output
-    if (counter_d == 0) begin //First sub-transfer must come directly from the input axi stream
-      out_req_o.t.data = in_req_i.t.data[DataWidthOut-1:0];
-      out_req_o.t.strb = in_req_i.t.strb[StrbWidthOut-1:0];
-      out_req_o.t.keep = in_req_i.t.keep[KeepWidthOut-1:0];
-      out_req_o.t.id   = in_req_i.t.id;
-      out_req_o.t.dest = in_req_i.t.dest;
-      out_req_o.t.user = in_req_i.t.user;
-    end else begin // all other sub-transfers can come from the stored data of the input stream
-      out_req_o.t.data = tdata_received_q[DataWidthOut-1:0];
-      out_req_o.t.strb = tstrb_received_q[StrbWidthOut-1:0];
-      out_req_o.t.keep = tkeep_received_q[KeepWidthOut-1:0];
-      out_req_o.t.id   = tid_received_q;
-      out_req_o.t.dest = tdest_received_q;
-      out_req_o.t.user = tuser_received_q;
-    end
-  end
 
   always_comb begin
     state_d         = state_q;
     counter_d       = 'd0;
-    out_req_o.tvalid = in_req_i.tvalid;
-    in_rsp_o.tready  = out_rsp_i.tready;
+    out_req_o.tvalid = 1'b0;
+    in_rsp_o.tready  = 1'b1;
     out_req_o.t.last  = 1'b0;
+    last_subtransfer = (counter_q == MaxSubTransferIndex - 1) ? 1'b1 : 1'b0;
+
+    out_req_o.t.data = tdata_received_q[DataWidthOut-1:0];
+    out_req_o.t.strb = tstrb_received_q[StrbWidthOut-1:0];
+    out_req_o.t.keep = tkeep_received_q[KeepWidthOut-1:0];
+    out_req_o.t.id   = tid_received_q;
+    out_req_o.t.dest = tdest_received_q;
+    out_req_o.t.user = tuser_received_q;
 
     tdata_received_d = tdata_received_q;
     tstrb_received_d = tstrb_received_q;
@@ -97,101 +88,74 @@ module axi_stream_dw_downsizer #(
     tuser_received_d = tuser_received_q;
 
     unique case (state_q)
-      NoValidDataIn : begin
-        if (in_req_i.tvalid && out_rsp_i.tready) begin
-          state_d = AcceptDataIn;
-        end
-        if (in_req_i.tvalid && !out_rsp_i.tready) begin
-          state_d = ValidDataInNoReadyOut;
-        end
-      end
-
-      ValidDataInNoReadyOut : begin
-        if (!in_req_i.tvalid) begin
-          state_d = NoValidDataIn;
-        end
-        if (in_req_i.tvalid && out_rsp_i.tready) begin
-          state_d = AcceptDataIn;
-        end
-      end
-
       AcceptDataIn : begin
-        if (out_rsp_i.tready) begin
-          state_d = DataOut;
-        end else begin
-          state_d = NoReadyInTransmission;
-        end
-      end
+        tdata_received_d = in_req_i.t.data;
+        tstrb_received_d = in_req_i.t.strb;
+        tkeep_received_d = in_req_i.t.keep;
+        tlast_received_d = in_req_i.t.last;
+        tid_received_d   = in_req_i.t.id;
+        tdest_received_d = in_req_i.t.dest;
+        tuser_received_d = in_req_i.t.user;
 
-      NoReadyInTransmission : begin
-        if (out_rsp_i.tready) begin
+        if (in_req_i.tvalid) begin
           state_d = DataOut;
         end
       end
 
       DataOut : begin
-        if (counter_q == MaxSubTransferIndex) begin
-          if (!in_req_i.tvalid) begin
-            state_d = NoValidDataIn;
-          end else if (out_rsp_i.tready) begin
-            state_d = AcceptDataIn;
-          end else begin
-            state_d = ValidDataInNoReadyOut;
+        out_req_o.tvalid = 1'b1;
+        in_rsp_o.tready  = 1'b0;
+        if (out_rsp_i.tready) begin
+          tdata_received_d = tdata_received_q >> DataWidthOut;
+          tstrb_received_d = tstrb_received_d >> StrbWidthOut;
+          tkeep_received_d = tkeep_received_q >> KeepWidthOut;
+          counter_d = counter_q + 'd1;
+
+          if (last_subtransfer) begin
+            state_d = LastDataOut;
           end
         end else begin
-          if (!out_rsp_i.tready) begin
-            state_d = NoReadyInTransmission;
+          counter_d = counter_q;
+        end
+      end
+
+      LastDataOut : begin
+        out_req_o.tvalid = 1'b1;
+        out_req_o.t.last  = tlast_received_q;
+        if (out_rsp_i.tready) begin
+          tdata_received_d = in_req_i.t.data;
+          tstrb_received_d = in_req_i.t.strb;
+          tkeep_received_d = in_req_i.t.keep;
+          tlast_received_d = in_req_i.t.last;
+          tid_received_d   = in_req_i.t.id;
+          tdest_received_d = in_req_i.t.dest;
+          tuser_received_d = in_req_i.t.user;
+
+          if (in_req_i.tvalid) begin
+            state_d = DataOut;
+          end else begin
+            state_d = AcceptDataIn;
           end
+        end else begin
+          in_rsp_o.tready  = 1'b0;
         end
       end
 
       default: begin
-        state_d = NoValidDataIn;
+        state_d = AcceptDataIn;
       end
     endcase
-
-    // logic for state transitions
-    if (state_d == AcceptDataIn) begin
-      out_req_o.tvalid = 1'b1;
-      in_rsp_o.tready  = 1'b1;
-      // save new data from input axi stream to registers
-      tdata_received_d = in_req_i.t.data >> DataWidthOut;
-      tstrb_received_d = in_req_i.t.strb >> StrbWidthOut;
-      tkeep_received_d = in_req_i.t.keep >> KeepWidthOut;
-      tlast_received_d = in_req_i.t.last;
-      tid_received_d   = in_req_i.t.id;
-      tdest_received_d = in_req_i.t.dest;
-      tuser_received_d = in_req_i.t.user;
-    end
-    if (state_d == NoReadyInTransmission) begin
-      out_req_o.tvalid = 1'b1;
-      in_rsp_o.tready  = 1'b0;
-      counter_d       = counter_q;
-    end
-    if (state_d == DataOut) begin
-      out_req_o.tvalid = 1'b1;
-      in_rsp_o.tready  = 1'b0;
-      counter_d       = counter_q + 'd1;
-      tdata_received_d = tdata_received_q >> DataWidthOut;
-      tstrb_received_d = tstrb_received_q >> StrbWidthOut;
-      tkeep_received_d = tkeep_received_q >> KeepWidthOut;
-
-      if (counter_q == MaxSubTransferIndex - 1) begin
-        // only output the tlast signal on the final sub-transfer
-        out_req_o.t.last = tlast_received_q;
-      end
-    end
   end
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      state_q   <= NoValidDataIn;
+      state_q   <= AcceptDataIn;
       counter_q <= 'd0;
 
       tdata_received_q <= 'd0;
       tstrb_received_q <= 'd0;
       tkeep_received_q <= 'd0;
-      tlast_received_q <= 1'b1;
+      tlast_received_q <= 1'b0;
       tid_received_q   <= 'd0;
       tdest_received_q <= 'd0;
       tuser_received_q <= 'd0;
