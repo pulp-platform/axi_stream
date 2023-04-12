@@ -19,6 +19,7 @@ In addition to the documents linked in the following table, we are setting up [d
 |-----------------------------------------------------|-----------------------------------------------------------------------------------|-----------------------------------------------------------------------------------|
 | [`axi_stream_cut`](src/axi_stream_cut.sv)           | Breaks all combinatorial paths between its input and output.                      | [Doc](https://pulp-platform.github.io/axi_stream/module.axi_stream_cut.html)      |
 | [`axi_stream_dw_downsizer`](src/axi_stream_dw_downsizer.sv) | A data width converter between a wide AXI master and a narrower AXI slave.| [Doc](docs/axi_stream_dw_downsizer.md)    |
+| [`axi_stream_dw_upsizer`](src/axi_stream_dw_upsizer.sv) | A data width converter between a narrower AXI master and a wide AXI slave.| [Doc](docs/axi_stream_dw_upsizer.md)    |
 | [`axi_stream_intf`](src/axi_stream_intf.sv)         | This file defines the interfaces we support.                                      |                                                                                   |
 | [`axi_stream_multicut`](src/axi_stream_multicut.sv) | AXI Stream register which can be used to relax timing pressure on long AXI buses. | [Doc](https://pulp-platform.github.io/axi_stream/module.axi_stream_multicut.html) |
 | [`axi_stream_test`](test/axi_stream_test.sv)        | A set of testbench utilities for AXI Stream interfaces.                           | [Doc](https://pulp-platform.github.io/axi_stream/package.axi_stream_test.html)    |
