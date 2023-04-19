@@ -91,31 +91,31 @@ module axi_stream_dw_upsizer #(
       AcceptDataIn : begin
         if (in_req_i.tvalid) begin
           counter_d = counter_q + 'd1;
-          tdata_received_d = {tdata_received_q[DataWidthOut-DataWidthIn : 0], in_req_i.t.data};
-          tstrb_received_d = {tstrb_received_q[StrbWidthOut-StrbWidthIn : 0], in_req_i.t.strb};
-          tkeep_received_d = {tkeep_received_q[KeepWidthOut-KeepWidthIn : 0], in_req_i.t.keep};
+          tdata_received_d = {in_req_i.t.data, tdata_received_q[DataWidthOut-1:DataWidthIn]};
+          tstrb_received_d = {in_req_i.t.strb, tstrb_received_q[StrbWidthOut-1:StrbWidthIn]};
+          tkeep_received_d = {in_req_i.t.keep, tkeep_received_q[KeepWidthOut-1:KeepWidthIn]};
           tlast_received_d = in_req_i.t.last;
           tid_received_d   = in_req_i.t.id;
           tdest_received_d = in_req_i.t.dest;
           tuser_received_d = in_req_i.t.user;
+          if (last_subtransfer) begin
+            state_d = DataOut;
+          end else begin
+            if (in_req_i.t.last) begin
+              state_d = Pad;
+            end
+          end
         end else begin
           counter_d = counter_q;
-        end
-        if (last_subtransfer) begin
-          state_d = DataOut;
-        end else begin
-          if (in_req_i.t.last) begin
-            state_d = Pad;
-          end
         end
       end
 
       Pad : begin
         in_rsp_o.tready  = 1'b0;
         counter_d = counter_q + 'd1;
-        tdata_received_d = tdata_received_q << DataWidthIn;
-        tstrb_received_d = tstrb_received_q << StrbWidthIn;
-        tkeep_received_d = tkeep_received_q << KeepWidthIn;
+        tdata_received_d = tdata_received_q >> DataWidthIn;
+        tstrb_received_d = tstrb_received_q >> StrbWidthIn;
+        tkeep_received_d = tkeep_received_q >> KeepWidthIn;
 
         if (last_subtransfer) begin
           state_d = DataOut;
@@ -130,9 +130,9 @@ module axi_stream_dw_upsizer #(
           if (in_req_i.tvalid) begin // already accept next subtransfer
             in_rsp_o.tready  = 1'b1;
             counter_d = 'd1;
-            tdata_received_d = {tdata_received_q[DataWidthOut-DataWidthIn : 0], in_req_i.t.data};
-            tstrb_received_d = {tstrb_received_q[StrbWidthOut-StrbWidthIn : 0], in_req_i.t.strb};
-            tkeep_received_d = {tkeep_received_q[KeepWidthOut-KeepWidthIn : 0], in_req_i.t.keep};
+            tdata_received_d = {in_req_i.t.data, tdata_received_q[DataWidthOut-1:DataWidthIn]};
+            tstrb_received_d = {in_req_i.t.strb, tstrb_received_q[StrbWidthOut-1:StrbWidthIn]};
+            tkeep_received_d = {in_req_i.t.keep, tkeep_received_q[KeepWidthOut-1:KeepWidthIn]};
             tlast_received_d = in_req_i.t.last;
             tid_received_d   = in_req_i.t.id;
             tdest_received_d = in_req_i.t.dest;

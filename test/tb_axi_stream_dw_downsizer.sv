@@ -44,15 +44,17 @@ module tb_axi_stream_dw_downsizer ();
 
   `AXI_STREAM_ASSIGN(master, master_dv);
 
-  typedef axi_stream_test::axi_stream_driver #(
+  typedef axi_stream_test::axi_stream_rand_tx #(
     .DataWidth (DW_IN),
     .IdWidth   (ID_WIDTH),
     .DestWidth (DEST_WIDTH),
     .UserWidth (USER_WIDTH),
-    .TestTime  (tCK/2)
+    .TestTime  (tCK/2),
+    .MinWaitCycles(0),
+    .MaxWaitCycles(50)
   ) master_drv_t;
 
-  master_drv_t master_drv = new(master_dv);
+  master_drv_t master_drv = new(master_dv, "master");
 
   // slave driver
     AXI_STREAM_BUS_DV #(
@@ -73,15 +75,17 @@ module tb_axi_stream_dw_downsizer ();
 
   `AXI_STREAM_ASSIGN(slave_dv, slave);
 
-  typedef axi_stream_test::axi_stream_driver #(
+  typedef axi_stream_test::axi_stream_rand_rx #(
     .DataWidth (DW_OUT),
     .IdWidth   (ID_WIDTH),
     .DestWidth (DEST_WIDTH),
     .UserWidth (USER_WIDTH),
-    .TestTime  (tCK/2)
+    .TestTime  (tCK/2),
+    .MinWaitCycles(0),
+    .MaxWaitCycles(50)
   ) slave_drv_t;
 
-  slave_drv_t slave_drv = new(slave_dv);
+  slave_drv_t slave_drv = new(slave_dv, "slave");
 
   // --------------------- DUT ------------------------
   axi_stream_dw_downsizer_intf #(
@@ -112,8 +116,8 @@ module tb_axi_stream_dw_downsizer ();
     eos = 1'b0;
 
     // RESET
-    master_drv.reset_tx();
-    slave_drv.reset_rx();
+    master_drv.reset();
+    slave_drv.reset();
     rst_ni <= 0;
     repeat(5) @(posedge clk_i);
     rst_ni <= 1;
@@ -138,6 +142,10 @@ module tb_axi_stream_dw_downsizer ();
 
     //TEST 5: no read while in transmission
     transmit_and_assert_with_interrupt(1'b1);
+    @(posedge clk_i);
+
+    //TEST 6: random test
+    random_transmit();
 
     repeat(2) @(posedge clk_i);
     eos = 1'b1;
@@ -241,5 +249,24 @@ module tb_axi_stream_dw_downsizer ();
       end
     join
   endtask : transmit_and_assert_with_interrupt
+
+  task random_transmit();
+    fork
+      begin
+        master_drv.send_rand(200, 1'b1);
+      end
+      begin
+        slave_drv.recv_rand(200*(DW_IN/DW_OUT));
+      end
+    join
+
+    for (int i = 0; i < master_drv.send_queue.size(); i++) begin
+      assert(master_drv.send_queue[i] == {slave_drv.recv_queue[i*(DW_IN/DW_OUT)+3],
+                                          slave_drv.recv_queue[i*(DW_IN/DW_OUT)+2],
+                                          slave_drv.recv_queue[i*(DW_IN/DW_OUT)+1],
+                                          slave_drv.recv_queue[i*(DW_IN/DW_OUT)]});
+    end
+
+  endtask : random_transmit
 
 endmodule : tb_axi_stream_dw_downsizer

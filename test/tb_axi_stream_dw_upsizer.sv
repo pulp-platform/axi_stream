@@ -44,15 +44,17 @@ module tb_axi_stream_dw_upsizer ();
 
   `AXI_STREAM_ASSIGN(master, master_dv);
 
-  typedef axi_stream_test::axi_stream_driver #(
+  typedef axi_stream_test::axi_stream_rand_tx #(
     .DataWidth (DW_IN),
     .IdWidth   (ID_WIDTH),
     .DestWidth (DEST_WIDTH),
     .UserWidth (USER_WIDTH),
-    .TestTime  (tCK/2)
+    .TestTime  (tCK/2),
+    .MinWaitCycles(0),
+    .MaxWaitCycles(50)
   ) master_drv_t;
 
-  master_drv_t master_drv = new(master_dv);
+  master_drv_t master_drv = new(master_dv, "master");
 
   // slave driver
     AXI_STREAM_BUS_DV #(
@@ -73,15 +75,17 @@ module tb_axi_stream_dw_upsizer ();
 
   `AXI_STREAM_ASSIGN(slave_dv, slave);
 
-  typedef axi_stream_test::axi_stream_driver #(
+  typedef axi_stream_test::axi_stream_rand_rx #(
     .DataWidth (DW_OUT),
     .IdWidth   (ID_WIDTH),
     .DestWidth (DEST_WIDTH),
     .UserWidth (USER_WIDTH),
-    .TestTime  (tCK/2)
+    .TestTime  (tCK/2),
+    .MinWaitCycles(0),
+    .MaxWaitCycles(50)
   ) slave_drv_t;
 
-  slave_drv_t slave_drv = new(slave_dv);
+  slave_drv_t slave_drv = new(slave_dv, "slave");
 
   // --------------------- DUT ------------------------
   axi_stream_dw_upsizer_intf #(
@@ -112,8 +116,8 @@ module tb_axi_stream_dw_upsizer ();
     eos = 1'b0;
 
     // RESET
-    master_drv.reset_tx();
-    slave_drv.reset_rx();
+    master_drv.reset();
+    slave_drv.reset();
     rst_ni <= 0;
     repeat(5) @(posedge clk_i);
     rst_ni <= 1;
@@ -151,6 +155,10 @@ module tb_axi_stream_dw_upsizer ();
     @(posedge clk_i);
     // TEST 11: transmit two block with TLAST at the second to last subtransfer with READ_DELAY=4
     double_transmit_and_assert_partial_with_read_delay(4); // with READ_DELAY=1
+    @(posedge clk_i);
+
+    //TEST 12: random test
+    random_transmit();
 
     repeat(2) @(posedge clk_i);
     eos = 1'b1;
@@ -171,7 +179,7 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == last);
       end
     join
@@ -189,7 +197,7 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_ef_00);
+        assert(slave.tdata == 32'h00_ef_34_12);
         assert(slave.tlast == 1'b1);
       end
     join
@@ -205,7 +213,7 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5) @(posedge clk_i);
-        assert(slave.tdata == 32'h76_00_00_00);
+        assert(slave.tdata == 32'h00_00_00_76);
         assert(slave.tlast == 1'b1);
       end
     join
@@ -229,10 +237,10 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == 1'b0);
         repeat(4) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == last);
       end
     join
@@ -255,10 +263,10 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == 1'b0);
         repeat(4) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_ef_00);
+        assert(slave.tdata == 32'h00_ef_34_12);
         assert(slave.tlast == 1'b1);
       end
     join
@@ -283,10 +291,10 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5+READ_DELAY) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == 1'b0);
         repeat(4) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == last);
       end
     join
@@ -310,13 +318,34 @@ module tb_axi_stream_dw_upsizer ();
       end
       begin // assert output
         repeat(5+READ_DELAY) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_56_ef);
+        assert(slave.tdata == 32'hef_56_34_12);
         assert(slave.tlast == 1'b0);
         repeat(4) @(posedge clk_i);
-        assert(slave.tdata == 32'h12_34_ef_00);
+        assert(slave.tdata == 32'h00_ef_34_12);
         assert(slave.tlast == 1'b1);
       end
     join
   endtask : double_transmit_and_assert_partial_with_read_delay
+
+  task random_transmit();
+    fork
+      begin
+        master_drv.send_rand(200*(DW_OUT/DW_IN), 1'b0);
+        repeat(4) @(posedge clk_i);
+      end
+      begin
+        slave_drv.recv_rand(200*(DW_OUT/DW_IN));
+      end
+    join_any
+
+    $display("test1:");
+    for (int i = 0; i < master_drv.send_queue.size()/(DW_OUT/DW_IN); i++) begin
+      assert(slave_drv.recv_queue[i] == {master_drv.send_queue[i*(DW_OUT/DW_IN)+3],
+                                         master_drv.send_queue[i*(DW_OUT/DW_IN)+2],
+                                         master_drv.send_queue[i*(DW_OUT/DW_IN)+1],
+                                         master_drv.send_queue[i*(DW_OUT/DW_IN)]});
+    end
+
+  endtask : random_transmit
 
 endmodule : tb_axi_stream_dw_upsizer
