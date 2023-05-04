@@ -45,8 +45,8 @@ module axi_stream_dw_upsizer #(
   localparam int unsigned KeepWidthIn         = DataWidthIn / 8              ;
   localparam int unsigned TotalSubTransfers   = DataWidthOut / DataWidthIn   ;
   localparam int unsigned CounterWidth        = $clog2(TotalSubTransfers)    ;
-  localparam int unsigned StrbWidthOut        = StrbWidthIn/TotalSubTransfers;
-  localparam int unsigned KeepWidthOut        = KeepWidthIn/TotalSubTransfers;
+  localparam int unsigned StrbWidthOut        = StrbWidthIn*TotalSubTransfers;
+  localparam int unsigned KeepWidthOut        = KeepWidthIn*TotalSubTransfers;
   localparam int unsigned MaxSubTransferIndex = TotalSubTransfers - 1        ;
 
   logic [DataWidthOut-1:0] tdata_received_d, tdata_received_q;
