@@ -18,7 +18,7 @@ package axi_stream_test;
     parameter time         TestTime  = 0ns  // stimuli test time
   );
 
-    virtual AXIS_BUS_DV #(
+    virtual AXI_STREAM_BUS_DV #(
       .DataWidth ( DataWidth ),
       .IdWidth   ( IdWidth   ),
       .DestWidth ( DestWidth ),
@@ -26,7 +26,7 @@ package axi_stream_test;
     ) axi_stream;
 
     function new(
-      virtual AXIS_BUS_DV #(
+      virtual AXI_STREAM_BUS_DV #(
         .DataWidth ( DataWidth ),
         .IdWidth   ( IdWidth   ),
         .DestWidth ( DestWidth ),
@@ -114,6 +114,102 @@ package axi_stream_test;
   endclass
 
 
+  class axi_stream_rand_tx #(
+    // AXI Stream interface parameters
+    parameter int unsigned DataWidth     = 0,
+    parameter int unsigned IdWidth       = 0,
+    parameter int unsigned DestWidth     = 0,
+    parameter int unsigned UserWidth     = 0,
+    // Stimuli application and test time
+    parameter time         ApplTime      = 0ns,
+    parameter time         TestTime      = 0ns,
+    // Upper and lower bounds on wait cycles
+    parameter int unsigned MinWaitCycles = 0,
+    parameter int unsigned MaxWaitCycles = 0
+  );
+    typedef axi_stream_test::axi_stream_driver #(
+      .DataWidth ( DataWidth ),
+      .IdWidth   ( IdWidth   ),
+      .DestWidth ( DestWidth ),
+      .UserWidth ( UserWidth ),
+      .ApplTime  ( ApplTime  ),
+      .TestTime  ( TestTime  )
+    ) axi_stream_driver_t;
+
+    typedef logic [DataWidth-1:0]   data_t;
+    typedef logic                   last_t;
+    typedef logic [DataWidth/8-1:0] strb_t;
+
+    string              name;
+    axi_stream_driver_t drv;
+    data_t              send_queue[$];
+
+    function new(
+      virtual AXI_STREAM_BUS_DV #(
+        .DataWidth ( DataWidth ),
+        .IdWidth   ( IdWidth   ),
+        .DestWidth ( DestWidth ),
+        .UserWidth ( UserWidth )
+      ) axi_stream,
+      input string name
+    );
+
+      this.drv  = new(axi_stream);
+      this.name = name;
+      assert (DataWidth != 0)
+      else $fatal(1, "Data width must be non-zero!");
+    endfunction
+
+    function void reset();
+      this.drv.reset_tx();
+    endfunction
+
+    task send(input logic [DataWidth-1:0] data, input logic last);
+      this.drv.send(data, last);
+    endtask
+
+    task automatic rand_wait (
+      input int unsigned min,
+      input int unsigned max
+    );
+      int unsigned rand_success, cycles;
+      rand_success = std::randomize(
+        cycles
+      ) with {
+        cycles >= min;
+        cycles <= max;
+      };
+      assert (rand_success)
+      else $error("Failed to randomize wait cycles!");
+      repeat (cycles) @(posedge this.drv.axi_stream.clk_i);
+    endtask
+
+    task automatic send_rand(input int unsigned n_writes, input logic rand_last);
+      automatic logic  rand_success;
+      automatic data_t data;
+      automatic last_t last;
+      repeat (n_writes) begin
+        rand_wait(MinWaitCycles, MaxWaitCycles);
+        rand_success = std::randomize(data); assert(rand_success);
+        if (rand_last) begin
+          rand_success = std::randomize(last); assert(rand_success);
+        end else begin
+          last = 1'b0;
+        end
+        this.drv.send(data, last);
+        this.send_queue.push_back(data);
+      end
+    endtask : send_rand
+
+    task automatic run(input int unsigned n_writes, input logic rand_last);
+      fork
+        send_rand(n_writes, rand_last);
+      join
+    endtask
+
+  endclass
+
+
   class axi_stream_rand_rx #(
     // AXI Stream interface parameters
     parameter int unsigned DataWidth     = 0,
@@ -131,7 +227,9 @@ package axi_stream_test;
       .DataWidth ( DataWidth ),
       .IdWidth   ( IdWidth   ),
       .DestWidth ( DestWidth ),
-      .UserWidth ( UserWidth )
+      .UserWidth ( UserWidth ),
+      .ApplTime  ( ApplTime  ),
+      .TestTime  ( TestTime  )
     ) axi_stream_driver_t;
 
     typedef logic [DataWidth-1:0]   data_t;
@@ -143,7 +241,7 @@ package axi_stream_test;
     data_t              recv_queue[$];
 
     function new(
-      virtual AXIS_BUS_DV #(
+      virtual AXI_STREAM_BUS_DV #(
         .DataWidth ( DataWidth ),
         .IdWidth   ( IdWidth   ),
         .DestWidth ( DestWidth ),
@@ -162,6 +260,10 @@ package axi_stream_test;
       this.drv.reset_rx();
     endfunction
 
+    task recv(output logic [DataWidth-1:0] data, output logic last);
+      this.drv.recv(data, last);
+    endtask : recv
+
     task automatic rand_wait (
       input int unsigned min,
       input int unsigned max
@@ -178,20 +280,19 @@ package axi_stream_test;
       repeat (cycles) @(posedge this.drv.axi_stream.clk_i);
     endtask
 
-    task automatic recv();
-      forever begin
-        automatic data_t data;
-        automatic last_t last;
+    task automatic recv_rand(input int unsigned n_reads);
+      automatic data_t data;
+      automatic last_t last;
+      repeat (n_reads) begin
         rand_wait(MinWaitCycles, MaxWaitCycles);
         this.drv.recv(data, last);
-        $display("%0t %s> Recv AR with DATA: %h LAST: %b", $time(), this.name, data, last);
         this.recv_queue.push_back(data);
       end
-    endtask : recv
+    endtask : recv_rand
 
-    task automatic run();
+    task automatic run(input int unsigned n_reads);
       fork
-        recv();
+        recv_rand(n_reads);
       join
     endtask
 

@@ -25,9 +25,13 @@ sources:
   - src/axi_stream_intf.sv
   # levels 1
   - src/axi_stream_cut.sv
+  - src/axi_stream_dw_downsizer.sv
+  - src/axi_stream_dw_upsizer.sv
   # levels 2
   - src/axi_stream_multicut.sv
 
   - target: test
     files:
       - test/axi_stream_test.sv
+      - test/tb_axi_stream_dw_downsizer.sv
+      - test/tb_axi_stream_dw_upsizer.sv
