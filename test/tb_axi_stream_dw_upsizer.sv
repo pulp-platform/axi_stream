@@ -42,7 +42,21 @@ module tb_axi_stream_dw_upsizer ();
     .UserWidth(USER_WIDTH)
   ) master();
 
+`ifndef VERILATOR
   `AXI_STREAM_ASSIGN(master, master_dv);
+`else
+  assign master.tvalid = master_dv.tvalid;
+  assign master.tdata  = master_dv.tdata;
+  assign master.tstrb  = master_dv.tstrb;
+  assign master.tkeep  = master_dv.tkeep;
+  assign master.tlast  = master_dv.tlast;
+  assign master.tid    = master_dv.tid;
+  assign master.tdest  = master_dv.tdest;
+  assign master.tuser  = master_dv.tuser;
+  // Sample tready in ACT region to break ICO combinational loop
+  always_ff @(posedge clk_i or negedge clk_i)
+    master_dv.tready <= master.tready;
+`endif
 
   typedef axi_stream_test::axi_stream_rand_tx #(
     .DataWidth (DW_IN),
@@ -331,7 +345,11 @@ module tb_axi_stream_dw_upsizer ();
     fork
       begin
         master_drv.send_rand(200*(DW_OUT/DW_IN), 1'b0);
+`ifdef VERILATOR
+        for (int k = 0; k < 4; k++) @(posedge clk_i);
+`else
         repeat(4) @(posedge clk_i);
+`endif
       end
       begin
         slave_drv.recv_rand(200*(DW_OUT/DW_IN));

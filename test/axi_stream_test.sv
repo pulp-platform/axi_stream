@@ -172,30 +172,39 @@ package axi_stream_test;
       input int unsigned min,
       input int unsigned max
     );
-      int unsigned rand_success, cycles;
-      rand_success = std::randomize(
-        cycles
-      ) with {
+      int unsigned cycles;
+`ifdef VERILATOR
+      cycles = (max > min) ? (min + ($urandom() % (max - min + 1))) : min;
+`else
+      int unsigned rand_success;
+      rand_success = std::randomize(cycles) with {
         cycles >= min;
         cycles <= max;
       };
-      assert (rand_success)
-      else $error("Failed to randomize wait cycles!");
+      assert (rand_success) else $error("Failed to randomize wait cycles!");
+`endif
       repeat (cycles) @(posedge this.drv.axi_stream.clk_i);
     endtask
 
     task automatic send_rand(input int unsigned n_writes, input logic rand_last);
-      automatic logic  rand_success;
       automatic data_t data;
       automatic last_t last;
       repeat (n_writes) begin
         rand_wait(MinWaitCycles, MaxWaitCycles);
-        rand_success = std::randomize(data); assert(rand_success);
-        if (rand_last) begin
-          rand_success = std::randomize(last); assert(rand_success);
-        end else begin
-          last = 1'b0;
+`ifdef VERILATOR
+        data = $urandom();
+        last = rand_last ? last_t'($urandom()) : 1'b0;
+`else
+        begin
+          automatic logic rand_success;
+          rand_success = std::randomize(data); assert(rand_success);
+          if (rand_last) begin
+            rand_success = std::randomize(last); assert(rand_success);
+          end else begin
+            last = 1'b0;
+          end
         end
+`endif
         this.drv.send(data, last);
         this.send_queue.push_back(data);
       end
@@ -268,15 +277,17 @@ package axi_stream_test;
       input int unsigned min,
       input int unsigned max
     );
-      int unsigned rand_success, cycles;
-      rand_success = std::randomize(
-        cycles
-      ) with {
+      int unsigned cycles;
+`ifdef VERILATOR
+      cycles = (max > min) ? (min + ($urandom() % (max - min + 1))) : min;
+`else
+      int unsigned rand_success;
+      rand_success = std::randomize(cycles) with {
         cycles >= min;
         cycles <= max;
       };
-      assert (rand_success)
-      else $error("Failed to randomize wait cycles!");
+      assert (rand_success) else $error("Failed to randomize wait cycles!");
+`endif
       repeat (cycles) @(posedge this.drv.axi_stream.clk_i);
     endtask
 
