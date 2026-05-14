@@ -8,3 +8,8 @@ work
 modelsim.ini
 transcript
 *.wlf
+
+# Verilator build artifacts
+compile_vltor.f
+obj_dir_*/
+*.log
