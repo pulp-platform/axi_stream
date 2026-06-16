@@ -35,8 +35,8 @@ module axi_stream_cut #(
 );
 
   // a spill register for the stream channel
-  spill_register #(
-    .T      ( s_chan_t ),
+  cc_spill_register #(
+    .data_t ( s_chan_t ),
     .Bypass ( Bypass   )
   ) i_spill_register_stream (
     .clk_i,
