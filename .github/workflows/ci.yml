@@ -70,7 +70,7 @@ jobs:
       - name: List contributors
         run: scripts/list-contributors | tee contributions.txt
       - name: Upload contributions.txt
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: contributions
           path: contributions.txt
@@ -89,7 +89,7 @@ jobs:
       - name: List todos
         run: scripts/list-todos | tee open_todos.txt
       - name: Upload todos.txt
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: open_todos
           path: open_todos.txt
@@ -137,13 +137,13 @@ jobs:
           dot doc/axi_stream.dot -Tpng -Granksep=4 -v -Ln25 -o doc/axi_stream.png
           rm -f doc/axi_stream.dot
       - name: Upload doc
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: doc
           path: doc
           retention-days: 7
       - name: Upload pickle
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: pickle
           path: pickle
