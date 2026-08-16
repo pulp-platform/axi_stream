@@ -137,6 +137,17 @@ module axi_stream_dw_upsizer #(
             tid_received_d   = in_req_i.t.id;
             tdest_received_d = in_req_i.t.dest;
             tuser_received_d = in_req_i.t.user;
+
+            // Same rule as AcceptDataIn: a beat carrying TLAST before the wide
+            // word is full has to pad, or that partial word is never emitted.
+            // The beat taken here is the first of a new word (counter_d == 1)
+            // and DataWidthOut > DataWidthIn is asserted, so the word cannot
+            // already be full. Without this the stream stalls holding the
+            // remainder until a later frame fills the word, and those bytes
+            // then leave merged into it.
+            if (in_req_i.t.last) begin
+              state_d = Pad;
+            end
           end
         end else begin
           in_rsp_o.tready  = 1'b0;

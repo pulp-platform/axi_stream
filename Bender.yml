@@ -35,3 +35,4 @@ sources:
       - test/axi_stream_test.sv
       - test/tb_axi_stream_dw_downsizer.sv
       - test/tb_axi_stream_dw_upsizer.sv
+      - test/tb_axi_stream_dw_upsizer_last.sv
