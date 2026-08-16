@@ -60,6 +60,22 @@ module axi_stream_dw_downsizer #(
   logic [CounterWidth-1:0] counter_d, counter_q;
   logic last_subtransfer;
 
+  // Index of the highest asserted TKEEP bit: the last sub-transfer of a beat
+  // that carries a valid byte. A beat with TKEEP all-zero yields 0, so it is
+  // still consumed as a single (null) sub-transfer and cannot stall the stream.
+  function automatic logic [CounterWidth-1:0] last_kept_index(input logic [KeepWidthIn-1:0] keep);
+    last_kept_index = '0;
+    for (int unsigned i = 0; i < KeepWidthIn; i++) begin
+      if (keep[i]) last_kept_index = i[CounterWidth-1:0];
+    end
+  endfunction
+
+  // Latched once when a beat is accepted. It must NOT be derived from
+  // tkeep_received_q, which is shifted right on every sub-transfer -- the
+  // target index would shrink as the counter climbs and a full beat would end
+  // early.
+  logic [CounterWidth-1:0] last_idx_d, last_idx_q;
+
   typedef enum logic [1:0] {AcceptDataIn, DataOut, LastDataOut} state_t;
   state_t state_d, state_q;
 
@@ -67,10 +83,11 @@ module axi_stream_dw_downsizer #(
   always_comb begin
     state_d         = state_q;
     counter_d       = 'd0;
+    last_idx_d      = last_idx_q;
     out_req_o.tvalid = 1'b0;
     in_rsp_o.tready  = 1'b1;
     out_req_o.t.last  = 1'b0;
-    last_subtransfer = (counter_q == MaxSubTransferIndex - 1) ? 1'b1 : 1'b0;
+    last_subtransfer = (counter_q == last_idx_q - 1) ? 1'b1 : 1'b0;
 
     out_req_o.t.data = tdata_received_q[DataWidthOut-1:0];
     out_req_o.t.strb = tstrb_received_q[StrbWidthOut-1:0];
@@ -96,9 +113,12 @@ module axi_stream_dw_downsizer #(
         tid_received_d   = in_req_i.t.id;
         tdest_received_d = in_req_i.t.dest;
         tuser_received_d = in_req_i.t.user;
+        last_idx_d       = last_kept_index(in_req_i.t.keep);
 
         if (in_req_i.tvalid) begin
-          state_d = DataOut;
+          // Only one valid byte: it is itself the last sub-transfer and must
+          // carry TLAST, so there is no DataOut phase.
+          state_d = (last_kept_index(in_req_i.t.keep) == '0) ? LastDataOut : DataOut;
         end
       end
 
@@ -107,7 +127,7 @@ module axi_stream_dw_downsizer #(
         in_rsp_o.tready  = 1'b0;
         if (out_rsp_i.tready) begin
           tdata_received_d = tdata_received_q >> DataWidthOut;
-          tstrb_received_d = tstrb_received_d >> StrbWidthOut;
+          tstrb_received_d = tstrb_received_q >> StrbWidthOut;
           tkeep_received_d = tkeep_received_q >> KeepWidthOut;
           counter_d = counter_q + 'd1;
 
@@ -130,9 +150,10 @@ module axi_stream_dw_downsizer #(
           tid_received_d   = in_req_i.t.id;
           tdest_received_d = in_req_i.t.dest;
           tuser_received_d = in_req_i.t.user;
+          last_idx_d       = last_kept_index(in_req_i.t.keep);
 
           if (in_req_i.tvalid) begin
-            state_d = DataOut;
+            state_d = (last_kept_index(in_req_i.t.keep) == '0) ? LastDataOut : DataOut;
           end else begin
             state_d = AcceptDataIn;
           end
@@ -149,8 +170,9 @@ module axi_stream_dw_downsizer #(
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
-      state_q   <= AcceptDataIn;
-      counter_q <= 'd0;
+      state_q    <= AcceptDataIn;
+      counter_q  <= 'd0;
+      last_idx_q <= '0;
 
       tdata_received_q <= 'd0;
       tstrb_received_q <= 'd0;
@@ -160,8 +182,9 @@ module axi_stream_dw_downsizer #(
       tdest_received_q <= 'd0;
       tuser_received_q <= 'd0;
     end else begin
-      state_q   <= state_d;
-      counter_q <= counter_d;
+      state_q    <= state_d;
+      counter_q  <= counter_d;
+      last_idx_q <= last_idx_d;
 
       tdata_received_q <= tdata_received_d;
       tstrb_received_q <= tstrb_received_d;

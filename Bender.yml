@@ -34,4 +34,5 @@ sources:
     files:
       - test/axi_stream_test.sv
       - test/tb_axi_stream_dw_downsizer.sv
+      - test/tb_axi_stream_dw_downsizer_tkeep.sv
       - test/tb_axi_stream_dw_upsizer.sv
